@@ -22,9 +22,9 @@ jobs:
           cache: "npm"
 
       - name: Install Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -34,10 +34,8 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
-
       - name: Install frontend dependencies
         run: bun install
-
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
