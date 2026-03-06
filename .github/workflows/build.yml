@@ -21,6 +21,11 @@ jobs:
           node-version: lts/*
           cache: "npm"
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -30,20 +35,20 @@ jobs:
           workspaces: "./src-tauri -> target"
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: pnpm install # 或者使用 npm ci，取决于您的项目
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
           CI: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY  }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.sha }} # 使用 commit hash 作为标签
-          releaseName: "QuickClipboard ${{ github.sha }}"
+          tagName: "PakePlus-v__VERSION__"
+          releaseName: "PakePlus v__VERSION__"
           releaseBody: "Built from commit ${{ github.sha }}"
           releaseDraft: false
-          prerelease: true # 推送到 main 时标记为预发布版
+          prerelease: true
           includeUpdaterJson: true
           updaterJsonKeepUniversal: true
