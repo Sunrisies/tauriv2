@@ -49,51 +49,40 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
-      - name: Get version
-        id: version
+      - name: Generate friendly tag name
+        id: tag
         run: |
+          # 使用时间戳作为标签名，格式: build-YYYYMMDD-HHMMSS
+          $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+          $tagName = "build-$timestamp"
+          echo "TAG_NAME=$tagName" >> $env:GITHUB_OUTPUT
+
+          # 生成版本号（用于显示）
           $version = "${{ github.sha }}".Substring(0, 7)
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.sha }}
-          release_name: "Demo App v${{ steps.version.outputs.VERSION }}"
-          body: "Built from commit ${{ github.sha }}"
+          tag_name: ${{ steps.tag.outputs.TAG_NAME }}
+          name: "Demo App ${{ steps.tag.outputs.TAG_NAME }}"
+          body: |
+            Built from commit ${{ github.sha }}
+
+            **Build information:**
+            - Commit: ${{ github.sha }}
+            - Build time: ${{ steps.tag.outputs.TAG_NAME }}
+
+            **Build artifacts:**
+            - Main executable: demo.exe
+            - MSI installer: demo_0.1.0_x64_en-US.msi
+            - NSIS installer: demo_0.1.0_x64-setup.exe
           draft: false
           prerelease: true
-
-      - name: Upload demo.exe
-        uses: actions/upload-release-asset@v1
+          files: |
+            src-tauri/target/release/demo.exe
+            src-tauri/target/release/bundle/msi/demo_0.1.0_x64_en-US.msi
+            src-tauri/target/release/bundle/nsis/demo_0.1.0_x64-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: src-tauri/target/release/demo.exe
-          asset_name: demo.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload MSI installer
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: src-tauri/target/release/bundle/msi/demo_0.1.0_x64_en-US.msi
-          asset_name: demo_0.1.0_x64_en-US.msi
-          asset_content_type: application/octet-stream
-
-      - name: Upload NSIS installer
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: src-tauri/target/release/bundle/nsis/demo_0.1.0_x64-setup.exe
-          asset_name: demo_0.1.0_x64-setup.exe
-          asset_content_type: application/octet-stream
