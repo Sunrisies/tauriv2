@@ -39,25 +39,21 @@ jobs:
       - name: Install Tauri CLI globally
         run: bun install -g @tauri-apps/cli
 
-      # 暂时跳过签名以确保构建成功
       - name: Build the app with Bun
         run: bun tauri build
         env:
           CI: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 暂时注释掉签名，确保构建能完成
+          # 启用签名，确保生成 .sig 文件
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
       - name: Generate friendly tag name
         id: tag
         run: |
-          # 使用时间戳作为标签名，格式: build-YYYYMMDD-HHMMSS
           $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
           $tagName = "build-$timestamp"
           echo "TAG_NAME=$tagName" >> $env:GITHUB_OUTPUT
-
-          # 生成版本号（用于显示）
           $version = "${{ github.sha }}".Substring(0, 7)
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         shell: pwsh
@@ -79,14 +75,15 @@ jobs:
             - MSI installer: demo_0.1.0_x64_en-US.msi
             - NSIS installer: demo_0.1.0_x64-setup.exe
           draft: false
-          prerelease: true
+          prerelease: true   # main 分支推送均视为预发布
           files: |
             src-tauri/target/release/demo.exe
             src-tauri/target/release/bundle/msi/demo_0.1.0_x64_en-US.msi
             src-tauri/target/release/bundle/nsis/demo_0.1.0_x64-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # ========== 新增：生成并上传更新描述文件 ==========
+
+      # ========== 新增：生成并上传更新描述文件 ==========
       - name: Generate and upload update manifests
         shell: pwsh
         env:
