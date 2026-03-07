@@ -86,3 +86,86 @@ jobs:
             src-tauri/target/release/bundle/nsis/demo_0.1.0_x64-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # ========== 新增：生成并上传更新描述文件 ==========
+      - name: Generate and upload update manifests
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 从 tauri.conf.json 读取版本号
+          $tauriConf = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $version = $tauriConf.package.version
+          Write-Host "Version from tauri.conf.json: $version"
+
+          # 判断是否为预发布版本（当前仅 main 分支触发，设为 $true；若将来需要标签触发可扩展）
+          $isPrerelease = $true
+          # 如需根据标签判断，可取消以下注释
+          # if ("${{ github.ref_type }}" -eq "tag") {
+          #   $isPrerelease = $version -match '(alpha|beta|rc|dev)'
+          # } else {
+          #   $isPrerelease = $true
+          # }
+          Write-Host "Is prerelease: $isPrerelease"
+
+          $repo = "$env:GITHUB_REPOSITORY"
+          $tag = "${{ steps.tag.outputs.TAG_NAME }}"
+          $filename = "demo_${version}_x64-setup.exe"
+          $signatureFile = "src-tauri/target/release/bundle/nsis/${filename}.sig"
+
+          # 检查签名文件是否存在
+          if (-not (Test-Path $signatureFile)) {
+              Write-Host "Signature file not found: $signatureFile"
+              exit 1
+          }
+
+          $signature = Get-Content $signatureFile -Raw
+          $url = "https://github.com/$repo/releases/download/$tag/$filename"
+
+          # 构建基础更新信息（哈希表）
+          $updateJson = @{
+              version   = $version
+              notes     = "Release $tag"
+              pub_date  = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
+              platforms = @{
+                  "windows-x86_64" = @{
+                      signature = $signature
+                      url       = $url
+                  }
+              }
+              forceUpdate = $false
+          }
+
+          if ($isPrerelease) {
+              # 测试版：只生成 beta_latest.json
+              $updateJson | ConvertTo-Json -Depth 10 | Set-Content "beta_latest.json" -Encoding UTF8
+
+              gh release delete-asset $tag "beta_latest.json" -y 2>$null
+              gh release upload $tag "beta_latest.json" --clobber
+
+              Write-Host "测试版：已上传 beta_latest.json（$version）"
+          } else {
+              # 正式版：生成 stable_latest.json 和 beta_latest.json，并增强 latest.json 添加渠道字段
+              # stable_latest.json
+              $updateJson | ConvertTo-Json -Depth 10 | Set-Content "stable_latest.json" -Encoding UTF8
+
+              # beta_latest.json 同步为正式版
+              $updateJson | ConvertTo-Json -Depth 10 | Set-Content "beta_latest.json" -Encoding UTF8
+
+              # 构建 latest.json（增加 stableJson / betaJson 指针）
+              $latestJson = $updateJson.Clone()
+              $latestJson["stableJson"] = "https://github.com/$repo/releases/latest/download/stable_latest.json"
+              $latestJson["betaJson"]   = "https://github.com/$repo/releases/latest/download/beta_latest.json"
+              $latestJson | ConvertTo-Json -Depth 10 | Set-Content "latest.json" -Encoding UTF8
+
+              # 上传三个文件
+              gh release delete-asset $tag "latest.json" -y 2>$null
+              gh release upload $tag "latest.json" --clobber
+
+              gh release delete-asset $tag "stable_latest.json" -y 2>$null
+              gh release upload $tag "stable_latest.json" --clobber
+
+              gh release delete-asset $tag "beta_latest.json" -y 2>$null
+              gh release upload $tag "beta_latest.json" --clobber
+
+              Write-Host "正式版：已更新 latest.json / stable_latest.json / beta_latest.json（$version）"
+          }
