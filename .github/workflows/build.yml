@@ -189,3 +189,15 @@ jobs:
 
               Write-Host "正式版：已更新 latest.json / stable_latest.json / beta_latest.json（$version）"
           }
+      - name: Deploy update manifests to GitHub Pages
+        if: success()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages
+          destination_dir: ./
+          keep_files: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Update update manifests'

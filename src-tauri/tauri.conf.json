@@ -38,7 +38,7 @@
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM1Nzk2ODRBM0ZEQjJCMEQKUldRTks5cy9TbWg1TlJYK2w3QUNJbStjOGEzUWtNUERnY1ZIeUFHMlpFVWk2ZHJGRytCUE5McUIK",
       "endpoints": [
         "https://releases.myapp.com/{{target}}/{{arch}}/{{current_version}}",
-        "https://github.com/user/repo/releases/latest/download/latest.json"
+        "https://github.com/Sunrisies/tauriv2/releases/download/build-20260307-020254/beta_latest.json"
       ],
       "windows": {
         "installMode": "passive"
