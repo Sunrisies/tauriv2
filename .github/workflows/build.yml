@@ -82,26 +82,60 @@ jobs:
             src-tauri/target/release/bundle/nsis/demo_0.1.0_x64-setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Debug - list files
+        shell: pwsh
+        run: |
+          Get-Location
+          Get-ChildItem -Recurse -File -Depth 2 | Select-Object FullName
 
-      # ========== 新增：生成并上传更新描述文件 ==========
       - name: Generate and upload update manifests
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 从 tauri.conf.json 读取版本号
-          $tauriConf = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
-          $version = $tauriConf.package.version
-          Write-Host "Version from tauri.conf.json: $version"
+          # 1. 读取版本号（尝试多种方式）
+          $version = $null
 
-          # 判断是否为预发布版本（当前仅 main 分支触发，设为 $true；若将来需要标签触发可扩展）
-          $isPrerelease = $true
-          # 如需根据标签判断，可取消以下注释
-          # if ("${{ github.ref_type }}" -eq "tag") {
-          #   $isPrerelease = $version -match '(alpha|beta|rc|dev)'
-          # } else {
-          #   $isPrerelease = $true
-          # }
+          # 方式一：从 tauri.conf.json 读取
+          $tauriConfPath = "src-tauri/tauri.conf.json"
+          if (Test-Path $tauriConfPath) {
+            try {
+              $tauriConf = Get-Content $tauriConfPath -Raw -Encoding UTF8 | ConvertFrom-Json
+              # 兼容 Tauri v1 (package.version) 和 v2 (顶层 version)
+              if ($tauriConf.package -and $tauriConf.package.version) {
+                $version = $tauriConf.package.version
+              } elseif ($tauriConf.version) {
+                $version = $tauriConf.version
+              }
+            } catch {
+              Write-Host "Failed to parse tauri.conf.json: $_"
+            }
+          } else {
+            Write-Host "tauri.conf.json not found at $tauriConfPath"
+          }
+
+          # 方式二：如果没读到，从生成的安装包文件名提取
+          if (-not $version) {
+            Write-Host "Attempting to extract version from built installer filename..."
+            $nsisFiles = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe"
+            if ($nsisFiles.Count -gt 0) {
+              $fileName = $nsisFiles[0].Name
+              if ($fileName -match 'demo_([^_]+)_x64-setup\.exe') {
+                $version = $matches[1]
+                Write-Host "Extracted version: $version from $fileName"
+              }
+            }
+          }
+
+          if (-not $version) {
+            Write-Host "ERROR: Could not determine version"
+            exit 1
+          }
+
+          Write-Host "Using version: $version"
+
+          # 判断是否为预发布版本
+          $isPrerelease = $true   # 当前 main 触发均为预发布，后续可按需调整
           Write-Host "Is prerelease: $isPrerelease"
 
           $repo = "$env:GITHUB_REPOSITORY"
@@ -109,16 +143,16 @@ jobs:
           $filename = "demo_${version}_x64-setup.exe"
           $signatureFile = "src-tauri/target/release/bundle/nsis/${filename}.sig"
 
-          # 检查签名文件是否存在
           if (-not (Test-Path $signatureFile)) {
-              Write-Host "Signature file not found: $signatureFile"
+              Write-Host "ERROR: Signature file not found: $signatureFile"
+              Write-Host "Available files in NSIS directory:"
+              Get-ChildItem "src-tauri/target/release/bundle/nsis" | Select-Object Name
               exit 1
           }
 
           $signature = Get-Content $signatureFile -Raw
           $url = "https://github.com/$repo/releases/download/$tag/$filename"
 
-          # 构建基础更新信息（哈希表）
           $updateJson = @{
               version   = $version
               notes     = "Release $tag"
@@ -133,34 +167,23 @@ jobs:
           }
 
           if ($isPrerelease) {
-              # 测试版：只生成 beta_latest.json
               $updateJson | ConvertTo-Json -Depth 10 | Set-Content "beta_latest.json" -Encoding UTF8
-
               gh release delete-asset $tag "beta_latest.json" -y 2>$null
               gh release upload $tag "beta_latest.json" --clobber
-
               Write-Host "测试版：已上传 beta_latest.json（$version）"
           } else {
-              # 正式版：生成 stable_latest.json 和 beta_latest.json，并增强 latest.json 添加渠道字段
-              # stable_latest.json
               $updateJson | ConvertTo-Json -Depth 10 | Set-Content "stable_latest.json" -Encoding UTF8
-
-              # beta_latest.json 同步为正式版
               $updateJson | ConvertTo-Json -Depth 10 | Set-Content "beta_latest.json" -Encoding UTF8
 
-              # 构建 latest.json（增加 stableJson / betaJson 指针）
               $latestJson = $updateJson.Clone()
               $latestJson["stableJson"] = "https://github.com/$repo/releases/latest/download/stable_latest.json"
               $latestJson["betaJson"]   = "https://github.com/$repo/releases/latest/download/beta_latest.json"
               $latestJson | ConvertTo-Json -Depth 10 | Set-Content "latest.json" -Encoding UTF8
 
-              # 上传三个文件
               gh release delete-asset $tag "latest.json" -y 2>$null
               gh release upload $tag "latest.json" --clobber
-
               gh release delete-asset $tag "stable_latest.json" -y 2>$null
               gh release upload $tag "stable_latest.json" --clobber
-
               gh release delete-asset $tag "beta_latest.json" -y 2>$null
               gh release upload $tag "beta_latest.json" --clobber
 
