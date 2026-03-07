@@ -1,0 +1,12 @@
+{
+  "notes": "Release build-20260307-021250",
+  "forceUpdate": false,
+  "pub_date": "2026-03-07T02:12:54Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTks5cy9TbWg1TldrcTM3NGtnbGhQdmNBUVljY3FhV0h1a05QNWEveEV0ckNQQ2VId1FZdndKK1JaTWlIN0U5VGRTdkZUM3NtZFpKTXFIUTYvQU1KMzg2N3Z0dEdwUkFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcyODQ5NTcwCWZpbGU6ZGVtb18wLjEuMF94NjQtc2V0dXAuZXhlClZXOGRXK3J2RzB6U2tPN0NzcTcwempWSXZ2dGczSDg5c3l6TlFLZ2JpNUVheDNxZHQ2TjJQSGE0dEpiZDY4MitFdTBGTE4xYUQwOUVOcFdoenJBMEJRPT0K",
+      "url": "https://github.com/Sunrisies/tauriv2/releases/download/build-20260307-021250/demo_0.1.0_x64-setup.exe"
+    }
+  },
+  "version": "0.1.0"
+}
